@@ -1,0 +1,3 @@
+enscript --line-numbers --pretty-print=matlab --color -B --columns=2 -H1 HW2.m -o test.ps
+
+enscript --help-highlight

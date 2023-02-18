@@ -1,0 +1,744 @@
+MODULE kk_netcdf_tools
+
+USE kk_netcdf_common
+IMPLICIT NONE
+
+!====================
+!
+! NetCDF MODULE 
+!
+!====================
+
+CONTAINS
+
+!----------------------------------
+!  DEFINE DIMS
+!----------------------------------
+SUBROUTINE kk_netcdf_define_dims(fname,dim_num,  &
+                                 var_name1,dim1, &
+                                 var_name2,dim2, &
+                                 var_name3,dim3, &
+                                 var_name4,dim4, &
+                                 var_name5,dim5, &
+                                 var_name6,dim6, &
+                                 var_name7,dim7, &
+                                 var_name8,dim8 )
+  IMPLICIT NONE
+  INCLUDE 'netcdf.inc'
+  CHARACTER(256) :: tmp_var_name
+  INTEGER      :: tmp_dim
+  CHARACTER(*),INTENT(IN) :: fname,var_name1
+  CHARACTER(*),INTENT(IN),OPTIONAL :: var_name2,var_name3,var_name4,var_name5,var_name6,var_name7,var_name8
+  INTEGER :: ierr,ncid,varid,ndims
+  INTEGER :: i,ii,out_ierr
+  INTEGER :: OUTVAR_DIM(1),start(1),count(1)
+  INTEGER,INTENT(IN) :: dim_num,dim1
+  INTEGER,INTENT(IN),OPTIONAL :: dim2,dim3,dim4,dim5,dim6,dim7,dim8
+
+  ierr = nf_create (trim(fname), nf_clobber, ncid)                   
+
+  do ii = 1,dim_num
+
+     IF (ii==1) THEN; tmp_var_name = var_name1; tmp_dim = dim1; ENDIF
+     IF (ii==2) THEN; tmp_var_name = var_name2; tmp_dim = dim2; ENDIF
+     IF (ii==3) THEN; tmp_var_name = var_name3; tmp_dim = dim3; ENDIF
+     IF (ii==4) THEN; tmp_var_name = var_name4; tmp_dim = dim4; ENDIF
+     IF (ii==5) THEN; tmp_var_name = var_name5; tmp_dim = dim5; ENDIF
+     IF (ii==6) THEN; tmp_var_name = var_name6; tmp_dim = dim6; ENDIF
+     IF (ii==7) THEN; tmp_var_name = var_name7; tmp_dim = dim7; ENDIF
+     IF (ii==8) THEN; tmp_var_name = var_name8; tmp_dim = dim8; ENDIF
+
+     start = 1; count(1) = tmp_dim
+     ierr = nf_def_dim(ncid, trim(tmp_var_name), tmp_dim, varid)
+
+     OUTVAR_DIM(1) = varid
+ !    write(*,*) '--------------------------------------------------------------'
+ !    write(*,*) 'COMPLETED [DEFINE] : ', trim(tmp_var_name), ' ===> ', trim(fname)
+ !    write(*,*) '--------------------------------------------------------------'
+
+   enddo
+
+   ierr = nf_enddef (ncid)
+   ierr = nf_close(ncid)
+END SUBROUTINE kk_netcdf_define_dims
+
+!!!----------------------------------
+!!!  READ
+!!!----------------------------------
+!!
+!!SUBROUTINE kk_netcdf_read_var_int(fname,var_name,out_var)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  INTEGER, INTENT(OUT) :: out_var
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  ierr = nf_get_var_int(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_var_int
+!!
+!!SUBROUTINE kk_netcdf_read_var_double(fname,var_name,out_var)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(8),INTENT(OUT) :: out_var
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  ierr = nf_get_var_double(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_var_double
+!!
+!!SUBROUTINE kk_netcdf_read_dim1(fname,var_name,out_var,dim1)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(4),ALLOCATABLE,INTENT(OUT) :: out_var(:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1))
+!!  ierr = nf_get_var_real(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim1
+!!
+!!SUBROUTINE kk_netcdf_read_dim1_int(fname,var_name,out_var,dim1)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  INTEGER,ALLOCATABLE,INTENT(OUT) :: out_var(:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1))
+!!  ierr = nf_get_var_int(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim1_int
+!!
+!!SUBROUTINE kk_netcdf_read_dim1_double(fname,var_name,out_var,dim1)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(8),ALLOCATABLE,INTENT(OUT) :: out_var(:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1))
+!!  ierr = nf_get_var_double(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim1_double
+!!
+!!SUBROUTINE kk_netcdf_read_dim2(fname,var_name,out_var,dim1,dim2)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(4),ALLOCATABLE,INTENT(OUT) :: out_var(:,:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1,dim2
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1,dim2))
+!!  ierr = nf_get_var_real(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim2
+!!
+!!SUBROUTINE kk_netcdf_read_dim2_double(fname,var_name,out_var,dim1,dim2)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(8),ALLOCATABLE,INTENT(OUT) :: out_var(:,:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1,dim2
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1,dim2))
+!!  ierr = nf_get_var_double(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim2_double
+!!
+!!SUBROUTINE kk_netcdf_read_dim2_int(fname,var_name,out_var,dim1,dim2)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  INTEGER,ALLOCATABLE,INTENT(OUT) :: out_var(:,:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1,dim2
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid)   ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid) ; CALL check_error(ierr,'read',out_ierr)
+!!  allocate (out_var (dim1,dim2))
+!!  ierr = nf_get_var_int(ncid, varid, out_var)      ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_close(ncid)                            ; CALL check_error(ierr,'read',out_ierr)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim2_int
+!!
+!!SUBROUTINE kk_netcdf_read_dim3(fname,var_name,out_var,dim1,dim2,dim3)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(4),ALLOCATABLE,INTENT(OUT) :: out_var(:,:,:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1,dim2,dim3
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1,dim2,dim3))
+!!  ierr = nf_get_var_real(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim3
+!!
+!!SUBROUTINE kk_netcdf_read_dim3_double(fname,var_name,out_var,dim1,dim2,dim3)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(8),ALLOCATABLE,INTENT(OUT) :: out_var(:,:,:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1,dim2,dim3
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1,dim2,dim3))
+!!  ierr = nf_get_var_double(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim3_double
+!!
+!!
+!!SUBROUTINE kk_netcdf_read_dim4(fname,var_name,out_var,dim1,dim2,dim3,dim4)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(4),ALLOCATABLE,INTENT(OUT) :: out_var(:,:,:,:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1,dim2,dim3,dim4
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1,dim2,dim3,dim4))
+!!  ierr = nf_get_var_real(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim4
+!!
+!!SUBROUTINE kk_netcdf_read_dim4_double(fname,var_name,out_var,dim1,dim2,dim3,dim4)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!!  REAL(8),ALLOCATABLE,INTENT(OUT) :: out_var(:,:,:,:)
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER,INTENT(IN) :: dim1,dim2,dim3,dim4
+!!
+!!  ierr = nf_open (trim(fname), nf_nowrite, ncid) ; CALL check_error(ierr,'read',out_ierr)
+!!  ierr = nf_inq_varid (ncid,trim(var_name), varid)
+!!  allocate (out_var(dim1,dim2,dim3,dim4))
+!!  ierr = nf_get_var_double(ncid, varid, out_var)
+!!  ierr = nf_close(ncid)
+!!  return
+!!END SUBROUTINE kk_netcdf_read_dim4_double
+!!
+!!!----------------------------------
+!!!  ADD
+!!!----------------------------------
+!!SUBROUTINE kk_netcdf_add_var_double(fname,out_var_name,out_var_name_dim1,title_name,dim1,out_var)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,title_name
+!!  REAL(8),INTENT(IN) :: out_var
+!!  INTEGER,INTENT(IN) :: dim1
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER :: varid_dim1,varid_dim2,name_len
+!!  INTEGER :: OUTVAR_DIM(1),start(1),count(1)
+!!
+!!     out_ierr = 0
+!!     start = 1
+!!     count(1) = dim1
+!!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!!     OUTVAR_DIM(1) = varid_dim1
+!!     ierr = nf_def_var(ncid, trim(out_var_name), nf_double, 1, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!!     name_len = len_trim(title_name)
+!!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_put_vara_double(ncid, varid, start,count, out_var)                 ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!!!     write(*,*) '--------------------------------------------------------------'
+!!!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!!!     write(*,*) '--------------------------------------------------------------'
+!!END SUBROUTINE kk_netcdf_add_var_double
+!!
+!!SUBROUTINE kk_netcdf_add_dim1_single(fname,out_var_name,out_var_name_dim1,title_name,dim1,out_var)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,title_name
+!!  REAL(4),ALLOCATABLE,INTENT(IN) :: out_var(:)
+!!  INTEGER,INTENT(IN) :: dim1
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER :: varid_dim1,varid_dim2,name_len
+!!  INTEGER :: OUTVAR_DIM(1),start(1),count(1)
+!!
+!!     out_ierr = 0
+!!     start = 1
+!!     count(1) = dim1
+!!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!!     OUTVAR_DIM(1) = varid_dim1
+!!     ierr = nf_def_var(ncid, trim(out_var_name), nf_real, 1, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!!     name_len = len_trim(title_name)
+!!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_put_vara_real(ncid, varid, start,count, out_var)                 ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!!     write(*,*) '--------------------------------------------------------------'
+!!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!!     write(*,*) '--------------------------------------------------------------'
+!!END SUBROUTINE kk_netcdf_add_dim1_single
+!!
+!!SUBROUTINE kk_netcdf_add_dim1_double(fname,out_var_name,out_var_name_dim1,title_name,dim1,out_var)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,title_name
+!!  REAL(8),ALLOCATABLE,INTENT(IN) :: out_var(:)
+!!  INTEGER,INTENT(IN) :: dim1
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER :: varid_dim1,varid_dim2,name_len
+!!  INTEGER :: OUTVAR_DIM(1),start(1),count(1)
+!!
+!!     out_ierr = 0
+!!     start = 1
+!!     count(1) = dim1
+!!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!!     OUTVAR_DIM(1) = varid_dim1
+!!     ierr = nf_def_var(ncid, trim(out_var_name), nf_double, 1, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!!     name_len = len_trim(title_name)
+!!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_put_vara_double(ncid, varid, start,count, out_var)                 ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!!     write(*,*) '--------------------------------------------------------------'
+!!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!!     write(*,*) '--------------------------------------------------------------'
+!!END SUBROUTINE kk_netcdf_add_dim1_double
+!!
+!!SUBROUTINE kk_netcdf_add_dim2_single(fname,out_var_name,out_var_name_dim1,out_var_name_dim2,title_name,dim1,dim2,out_var1,out_var2)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,out_var_name_dim2,title_name
+!!  REAL(4),ALLOCATABLE :: out_var(:,:)
+!!  REAL(4),ALLOCATABLE,INTENT(IN),OPTIONAL :: out_var1(:,:)
+!!  REAL(8),ALLOCATABLE,INTENT(IN),OPTIONAL :: out_var2(:,:)
+!!  INTEGER,INTENT(IN) :: dim1,dim2
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER :: varid_dim1,varid_dim2,name_len
+!!  INTEGER :: OUTVAR_DIM(2),start(2),count(2)
+!!
+!!     ALLOCATE (out_var(dim1,dim2))
+!!     IF (PRESENT(out_var1)) out_var = out_var1
+!!     IF (PRESENT(out_var2)) out_var = real(out_var2,kind=4)
+!!
+!!     out_ierr = 0
+!!     start = 1
+!!     count(1) = dim1
+!!     count(2) = dim2
+!!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim2), varid_dim2) ; CALL check_error(ierr,'add',out_ierr)
+!!     OUTVAR_DIM(1) = varid_dim1
+!!     OUTVAR_DIM(2) = varid_dim2
+!!     ierr = nf_def_var(ncid, trim(out_var_name), nf_real, 2, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!!     name_len = len_trim(title_name)
+!!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_put_vara_real(ncid, varid, start,count, out_var)                 ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!!     write(*,*) '--------------------------------------------------------------'
+!!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!!     write(*,*) '--------------------------------------------------------------'
+!!END SUBROUTINE kk_netcdf_add_dim2_single
+!!
+!!SUBROUTINE kk_netcdf_add_dim2_double(fname,out_var_name,out_var_name_dim1,out_var_name_dim2,title_name,dim1,dim2,out_var1)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,out_var_name_dim2,title_name
+!!  REAL(8),ALLOCATABLE,INTENT(IN) :: out_var1(:,:)
+!!  REAL(8),ALLOCATABLE :: out_var(:,:)
+!!  INTEGER,INTENT(IN) :: dim1,dim2
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER :: varid_dim1,varid_dim2,name_len
+!!  INTEGER :: OUTVAR_DIM(2),start(2),count(2)
+!!
+!!     ALLOCATE (out_var(dim1,dim2))
+!!     out_var = out_var1
+!!
+!!     out_ierr = 0
+!!     start = 1
+!!     count(1) = dim1
+!!     count(2) = dim2
+!!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim2), varid_dim2) ; CALL check_error(ierr,'add',out_ierr)
+!!     OUTVAR_DIM(1) = varid_dim1
+!!     OUTVAR_DIM(2) = varid_dim2
+!!     ierr = nf_def_var(ncid, trim(out_var_name), nf_double, 2, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!!     name_len = len_trim(title_name)
+!!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_put_vara_double(ncid, varid, start,count, out_var)               ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!!     write(*,*) '--------------------------------------------------------------'
+!!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!!     write(*,*) '--------------------------------------------------------------'
+!!END SUBROUTINE kk_netcdf_add_dim2_double
+!!
+!!SUBROUTINE kk_netcdf_add_dim2_int(fname,out_var_name,out_var_name_dim1,out_var_name_dim2,title_name,dim1,dim2,out_var1)
+!!  USE netcdf
+!!  IMPLICIT NONE
+!!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,out_var_name_dim2,title_name
+!!  INTEGER,ALLOCATABLE,INTENT(IN) :: out_var1(:,:)
+!!  INTEGER,ALLOCATABLE :: out_var(:,:)
+!!  INTEGER,INTENT(IN) :: dim1,dim2
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER :: varid_dim1,varid_dim2,name_len
+!!  INTEGER :: OUTVAR_DIM(2),start(2),count(2)
+!!
+!!     ALLOCATE (out_var(dim1,dim2))
+!!     out_var = out_var1
+!!
+!!     out_ierr = 0
+!!     start = 1
+!!     count(1) = dim1
+!!     count(2) = dim2
+!!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim2), varid_dim2) ; CALL check_error(ierr,'add',out_ierr)
+!!     OUTVAR_DIM(1) = varid_dim1
+!!     OUTVAR_DIM(2) = varid_dim2
+!!     ierr = nf_def_var(ncid, trim(out_var_name), nf_int, 2, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!!     name_len = len_trim(title_name)
+!!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_put_vara_int(ncid, varid, start,count, out_var)               ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!!     write(*,*) '--------------------------------------------------------------'
+!!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!!     write(*,*) '--------------------------------------------------------------'
+!!END SUBROUTINE kk_netcdf_add_dim2_int
+
+!!SUBROUTINE kk_netcdf_add_dim3_single(fname,out_var_name,out_var_name_dim1,out_var_name_dim2,out_var_name_dim3,title_name,dim1,dim2,dim3,out_var1,out_var2)
+!!  IMPLICIT NONE
+!!  INCLUDE 'netcdf.inc'
+!!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,out_var_name_dim2,out_var_name_dim3,title_name
+!!  REAL(4),ALLOCATABLE :: out_var(:,:,:)
+!!  REAL(4),ALLOCATABLE,INTENT(IN),OPTIONAL :: out_var1(:,:,:)
+!!  REAL(8),ALLOCATABLE,INTENT(IN),OPTIONAL :: out_var2(:,:,:)
+!!  INTEGER,INTENT(IN) :: dim1,dim2,dim3
+!!  INTEGER :: ierr,ncid,varid,ndims
+!!  INTEGER :: i,out_ierr
+!!  INTEGER :: varid_dim1,varid_dim2,varid_dim3,name_len
+!!  INTEGER :: OUTVAR_DIM(3),start(3),count(3)
+!!
+!!
+!!     ALLOCATE (out_var(dim1,dim2,dim3))
+!!     IF (PRESENT(out_var1)) out_var = out_var1
+!!     IF (PRESENT(out_var2)) out_var = real(out_var2,kind=4)
+!!
+!!     out_ierr = 0
+!!     start = 1
+!!     count(1) = dim1
+!!     count(2) = dim2
+!!     count(3) = dim3
+!!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim2), varid_dim2) ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim3), varid_dim3) ; CALL check_error(ierr,'add',out_ierr)
+!!     OUTVAR_DIM(1) = varid_dim1
+!!     OUTVAR_DIM(2) = varid_dim2
+!!     OUTVAR_DIM(3) = varid_dim3
+!!     ierr = nf_def_var(ncid, trim(out_var_name), nf_real, 3, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!!     name_len = len_trim(title_name)
+!!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_put_vara_real(ncid, varid, start,count, out_var)               ; CALL check_error(ierr,'add',out_ierr)
+!!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!!     write(*,*) '--------------------------------------------------------------'
+!!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!!     write(*,*) '--------------------------------------------------------------'
+!!END SUBROUTINE kk_netcdf_add_dim3_single
+
+
+SUBROUTINE kk_netcdf_add_dim3_double(fname,out_var_name,out_var_name_dim1,out_var_name_dim2,out_var_name_dim3,title_name,dim1,dim2,dim3,out_var1)
+  IMPLICIT NONE
+  INCLUDE 'netcdf.inc'
+  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,out_var_name_dim2,out_var_name_dim3,title_name
+  REAL(8),ALLOCATABLE :: out_var(:,:,:)
+  REAL(8),ALLOCATABLE,INTENT(IN) :: out_var1(:,:,:)
+  INTEGER,INTENT(IN) :: dim1,dim2,dim3
+  INTEGER :: ierr,ncid,varid,ndims
+  INTEGER :: i,out_ierr
+  INTEGER :: varid_dim1,varid_dim2,varid_dim3,name_len
+  INTEGER :: OUTVAR_DIM(3),start(3),count(3)
+
+     ALLOCATE (out_var(dim1,dim2,dim3))
+     out_var = out_var1
+
+     out_ierr = 0
+     start = 1
+     count(1) = dim1
+     count(2) = dim2
+     count(3) = dim3
+     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim2), varid_dim2) ; CALL check_error(ierr,'add',out_ierr)
+     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim3), varid_dim3) ; CALL check_error(ierr,'add',out_ierr)
+     OUTVAR_DIM(1) = varid_dim1
+     OUTVAR_DIM(2) = varid_dim2
+     OUTVAR_DIM(3) = varid_dim3
+     ierr = nf_def_var(ncid, trim(out_var_name), nf_double, 3, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+     name_len = len_trim(title_name)
+     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+     ierr = nf_put_vara_double(ncid, varid, start,count, out_var)               ; CALL check_error(ierr,'add',out_ierr)
+     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+     write(*,*) '--------------------------------------------------------------'
+     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+     write(*,*) '--------------------------------------------------------------'
+END SUBROUTINE kk_netcdf_add_dim3_double
+
+!SUBROUTINE kk_netcdf_add_dim4_single(fname,out_var_name,out_var_name_dim1,out_var_name_dim2,out_var_name_dim3,out_var_name_dim4,title_name,dim1,dim2,dim3,dim4,out_var)
+!  USE netcdf
+!  IMPLICIT NONE
+!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,out_var_name_dim2,out_var_name_dim3,out_var_name_dim4,title_name
+!  REAL(4),ALLOCATABLE,INTENT(IN) :: out_var(:,:,:,:)
+!  INTEGER,INTENT(IN) :: dim1,dim2,dim3,dim4
+!  INTEGER :: ierr,ncid,varid,ndims
+!  INTEGER :: i,out_ierr
+!  INTEGER :: varid_dim1,varid_dim2,varid_dim3,varid_dim4,name_len
+!  INTEGER :: OUTVAR_DIM(4),start(4),count(4)
+!
+!
+!     out_ierr = 0
+!     start = 1
+!     count(1) = dim1
+!     count(2) = dim2
+!     count(3) = dim3
+!     count(4) = dim4
+!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim2), varid_dim2) ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim3), varid_dim3) ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim4), varid_dim4) ; CALL check_error(ierr,'add',out_ierr)
+!     OUTVAR_DIM(1) = varid_dim1
+!     OUTVAR_DIM(2) = varid_dim2
+!     OUTVAR_DIM(3) = varid_dim3
+!     OUTVAR_DIM(4) = varid_dim4
+!     ierr = nf_def_var(ncid, trim(out_var_name), nf_real, 4, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!     name_len = len_trim(title_name)
+!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_put_vara_real(ncid, varid, start,count, out_var)               ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!     write(*,*) '--------------------------------------------------------------'
+!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!     write(*,*) '--------------------------------------------------------------'
+!END SUBROUTINE kk_netcdf_add_dim4_single
+!
+!SUBROUTINE kk_netcdf_add_dim4_double(fname,out_var_name,out_var_name_dim1,out_var_name_dim2,out_var_name_dim3,out_var_name_dim4,title_name,dim1,dim2,dim3,dim4,out_var)
+!  USE netcdf
+!  IMPLICIT NONE
+!  CHARACTER(*),INTENT(IN) :: fname,out_var_name,out_var_name_dim1,out_var_name_dim2,out_var_name_dim3,out_var_name_dim4,title_name
+!  REAL(8),ALLOCATABLE,INTENT(IN) :: out_var(:,:,:,:)
+!  INTEGER,INTENT(IN) :: dim1,dim2,dim3,dim4
+!  INTEGER :: ierr,ncid,varid,ndims
+!  INTEGER :: i,out_ierr
+!  INTEGER :: varid_dim1,varid_dim2,varid_dim3,varid_dim4,name_len
+!  INTEGER :: OUTVAR_DIM(4),start(4),count(4)
+!
+!
+!     out_ierr = 0
+!     start = 1
+!     count(1) = dim1
+!     count(2) = dim2
+!     count(3) = dim3
+!     count(4) = dim4
+!     ierr = nf_open (trim(fname), nf_write, ncid)                   ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_redef(ncid)                                          ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim1), varid_dim1) ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim2), varid_dim2) ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim3), varid_dim3) ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_inq_dimid(ncid, trim(out_var_name_dim4), varid_dim4) ; CALL check_error(ierr,'add',out_ierr)
+!     OUTVAR_DIM(1) = varid_dim1
+!     OUTVAR_DIM(2) = varid_dim2
+!     OUTVAR_DIM(3) = varid_dim3
+!     OUTVAR_DIM(4) = varid_dim4
+!     ierr = nf_def_var(ncid, trim(out_var_name), nf_double, 4, OUTVAR_DIM, varid) ; CALL check_error(ierr,'add',out_ierr)
+!     name_len = len_trim(title_name)
+!     ierr = nf_put_att_text(ncid,varid, 'title', name_len, trim(title_name))    ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_enddef (ncid)                                                    ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_put_vara_double(ncid, varid, start,count, out_var)               ; CALL check_error(ierr,'add',out_ierr)
+!     ierr = nf_close(ncid)                                                      ; CALL check_error(ierr,'add',out_ierr)
+!     write(*,*) '--------------------------------------------------------------'
+!     write(*,*) 'COMPLETED [ADD] : ', trim(out_var_name), ' ===> ', trim(fname)
+!     write(*,*) '--------------------------------------------------------------'
+!END SUBROUTINE kk_netcdf_add_dim4_double
+!
+!!----------------------------------
+!!  Get Dimension
+!!----------------------------------
+!SUBROUTINE kk_netcdf_getdim(fname,var_name,dim1)
+!  USE netcdf
+!  IMPLICIT NONE
+!  CHARACTER(*),INTENT(IN) :: fname,var_name
+!  INTEGER,INTENT(OUT) :: dim1
+!  INTEGER :: ierr,ncid,dimid
+!  INTEGER :: i,out_ierr
+!
+!  ierr = nf_open (trim(fname), nf_nowrite, ncid)      ; CALL check_error(ierr,'getdim',out_ierr)
+!  ierr = nf_inq_dimid (ncid,trim(var_name), dimid)    ; CALL check_error(ierr,'getdim',out_ierr)
+!  ierr = nf_inq_dimlen(ncid, dimid, dim1)             ; CALL check_error(ierr,'getdim',out_ierr)
+!  ierr = nf_close(ncid)                               ; CALL check_error(ierr,'getdim',out_ierr)
+!END SUBROUTINE kk_netcdf_getdim
+!
+!!----------------------------------
+!!  PUT
+!!----------------------------------
+!SUBROUTINE kk_netcdf_put_dim3_double(fname,out_var_name,out_var)
+!  USE netcdf
+!  IMPLICIT NONE
+!  CHARACTER(*),INTENT(IN) :: fname,out_var_name
+!  REAL(8),ALLOCATABLE,INTENT(IN) :: out_var(:,:,:)
+!  INTEGER :: ierr,ncid,varid
+!  INTEGER :: i,out_ierr
+!
+!  ierr = nf_open (trim(fname), nf_write, ncid)              ; CALL check_error(ierr,'put',out_ierr)
+!  ierr = NF_INQ_VARID(ncid,trim(out_var_name),varid)        ; CALL check_error(ierr,'put',out_ierr)
+!  ierr = NF_PUT_VAR_double(ncid,varid,out_var)              ; CALL check_error(ierr,'put',out_ierr)
+!  ierr = nf_close(ncid)                                     ; CALL check_error(ierr,'put',out_ierr)
+!  write(*,*) '--------------------------------------------------------------'
+!  write(*,*) 'COMPLETED [PUT] : ', trim(out_var_name), ' ===> ', trim(fname)
+!  write(*,*) '--------------------------------------------------------------'
+!END SUBROUTINE kk_netcdf_put_dim3_double
+!
+!SUBROUTINE kk_netcdf_put_dim4_double(fname,out_var_name,out_var)
+!  USE netcdf
+!  IMPLICIT NONE
+!  CHARACTER(*),INTENT(IN) :: fname,out_var_name
+!  REAL(8),ALLOCATABLE,INTENT(IN) :: out_var(:,:,:,:)
+!  INTEGER :: ierr,ncid,varid
+!  INTEGER :: i,out_ierr
+!
+!  ierr = nf_open (trim(fname), nf_write, ncid)              ; CALL check_error(ierr,'put',out_ierr)
+!  ierr = NF_INQ_VARID(ncid,trim(out_var_name),varid)        ; CALL check_error(ierr,'put',out_ierr)
+!  ierr = NF_PUT_VAR_double(ncid,varid,out_var)              ; CALL check_error(ierr,'put',out_ierr)
+!  ierr = nf_close(ncid)                                     ; CALL check_error(ierr,'put',out_ierr)
+!  write(*,*) '--------------------------------------------------------------'
+!  write(*,*) 'COMPLETED [PUT] : ', trim(out_var_name), ' ===> ', trim(fname)
+!  write(*,*) '--------------------------------------------------------------'
+!END SUBROUTINE kk_netcdf_put_dim4_double
+!!----------------------------------
+!!  ADD Lat&Lon
+!!----------------------------------
+!SUBROUTINE kk_netcdf_add_LatLon(fname,latmin,latmax,latdim,lonmin,lonmax,londim)
+!  USE netcdf
+!  IMPLICIT NONE
+!  CHARACTER(*),INTENT(IN) :: fname
+!  INTEGER,INTENT(IN) :: latdim,londim
+!  REAL(4),INTENT(IN) :: latmin,latmax,lonmin,lonmax
+!  INTEGER :: ierr,ncid,dimid
+!  REAL(4),ALLOCATABLE :: Lon(:),Lat(:)
+!  INTEGER :: i
+!  REAL(4) :: diff
+!  
+!  ALLOCATE(Lon(londim))
+!  diff = abs(lonmax-lonmin)/real(londim)
+!  DO i = 1,londim
+!    Lon(i) = lonmin + real((i-1))*diff
+!  ENDDO
+!  ALLOCATE(Lat(latdim))
+!  diff = abs(latmax-latmin)/real(latdim)
+!  DO i = 1,latdim
+!    Lat(i) = latmin + real((i-1))*diff
+!  ENDDO
+!  CALL kk_netcdf_add_dim1_single   (trim(fname),'Lon','Lon','Lon',londim,Lon)
+!  CALL kk_netcdf_add_dim1_single   (trim(fname),'Lat','Lat','Lat',latdim,Lat)
+!END SUBROUTINE kk_netcdf_add_LatLon
+!
+!!----------------------------------
+!!  Error Trap
+!!----------------------------------
+!SUBROUTINE check_error(ierr,mode,out_ierr)
+!  INTEGER,INTENT(IN) :: ierr
+!  CHARACTER(*),INTENT(IN) :: mode
+!  INTEGER,INTENT(INOUT) :: out_ierr
+!
+!     out_ierr = out_ierr + 1
+!     IF (ierr.ne.nf_noerr) then
+!       if (trim(mode) == 'add' ) then
+!         write(*,*) 'Cannot add NetCDF file at ', out_ierr, ' !!! '
+!         stop
+!       elseif (trim(mode) == 'create' ) then
+!         write(*,*) 'Cannot create NetCDF file at ', out_ierr, ' !!! '
+!         stop
+!       elseif (trim(mode) == 'read' ) then
+!         write(*,*) 'Cannot read NetCDF file at ', out_ierr, ' !!! '
+!         stop
+!       elseif (trim(mode) == 'getdim' ) then
+!         write(*,*) 'Cannot get dimension NetCDF file at ', out_ierr, ' !!! '
+!         stop
+!       elseif (trim(mode) == 'define' ) then
+!         write(*,*) 'Cannot define dimension NetCDF file at ', out_ierr, ' !!! '
+!         stop
+!       elseif (trim(mode) == 'put' ) then
+!         write(*,*) 'Cannot put NetCDF file at ', out_ierr, ' !!! '
+!         stop
+!       endif
+!     endif
+!END SUBROUTINE check_error
+  
+
+END MODULE kk_netcdf_tools
