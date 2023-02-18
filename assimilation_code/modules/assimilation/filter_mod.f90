@@ -29,7 +29,7 @@ use time_manager_mod,      only : time_type, get_time, set_time, operator(/=), o
                                   operator(-), print_time
 
 use utilities_mod,         only : error_handler, E_ERR, E_MSG, E_DBG,                         &
-                                  logfileunit, nmlfileunit, timestamp,                        &
+                                  logfileunit, nmlfileunit, timestamp, get_value_from_string, &
                                   do_output, find_namelist_in_file, check_namelist_read,      &
                                   open_file, close_file, do_nml_file, do_nml_term, to_upper,  &
                                   set_multiple_filename_lists, find_textfile_dims
@@ -133,6 +133,7 @@ integer :: ENS_MEM_START                   = COPY_NOT_PRESENT
 integer :: ENS_MEM_END                     = COPY_NOT_PRESENT
 integer :: ENS_MEAN_COPY                   = COPY_NOT_PRESENT
 integer :: ENS_SD_COPY                     = COPY_NOT_PRESENT
+integer :: MIN_RES_COPY                    = COPY_NOT_PRESENT
 integer :: PRIOR_INF_COPY                  = COPY_NOT_PRESENT
 integer :: PRIOR_INF_SD_COPY               = COPY_NOT_PRESENT
 integer :: POST_INF_COPY                   = COPY_NOT_PRESENT
@@ -237,8 +238,11 @@ character(len=256) :: obs_sequence_in_name  = "obs_seq.out",    &
 ! The inflation algorithm variables are defined in adaptive_inflate_mod.
 ! We use the integer parameters for PRIOR_INF and POSTERIOR_INF from 
 ! adaptive_inflate_mod to index these 'length 2' arrays.
+! To support more flexible methods of specifying the inflation algorithm,
+! inf_flavor must be a character string whose value is converted to an
+! integer to be backward compatible. 
 
-integer  :: inf_flavor(2)                  = 0
+character(len=32) :: inf_flavor(2)         = (/ 'none', 'none' /)
 logical  :: inf_initial_from_restart(2)    = .false.
 logical  :: inf_sd_initial_from_restart(2) = .false.
 logical  :: inf_deterministic(2)           = .true.
@@ -307,6 +311,9 @@ namelist /filter_nml/ async,     &
    write_all_stages_at_end,      &
    write_obs_every_cycle,        & 
    allow_missing_clm
+
+
+integer :: inflation_flavor(2)
 
 !----------------------------------------------------------------
 
@@ -395,13 +402,18 @@ allow_missing = get_missing_ok_status()
 
 call trace_message('Before initializing inflation')
 
-call validate_inflate_options(inf_flavor, inf_damping, inf_initial_from_restart, &
+! inf_flavor from the namelist is now a character string.  
+! the inflation-related subroutines require an integer so the
+! variable inflation_flavor is added and is type integer.
+inflation_flavor = set_inflation_flavor(inf_flavor)
+
+call validate_inflate_options(inflation_flavor, inf_damping, inf_initial_from_restart, &
    inf_sd_initial_from_restart, inf_deterministic, inf_sd_max_change,            &
    do_prior_inflate, do_posterior_inflate, output_inflation, compute_posterior)
 
 ! Initialize the adaptive inflation module
 call adaptive_inflate_init(prior_inflate, &
-                           inf_flavor(PRIOR_INF), &
+                           inflation_flavor(PRIOR_INF), &
                            inf_initial_from_restart(PRIOR_INF), & 
                            inf_sd_initial_from_restart(PRIOR_INF), &
                            output_inflation, &
@@ -416,7 +428,7 @@ call adaptive_inflate_init(prior_inflate, &
                            allow_missing, 'Prior')
 
 call adaptive_inflate_init(post_inflate, &
-                           inf_flavor(POSTERIOR_INF), &
+                           inflation_flavor(POSTERIOR_INF), &
                            inf_initial_from_restart(POSTERIOR_INF), &
                            inf_sd_initial_from_restart(POSTERIOR_INF), &
                            output_inflation, &
@@ -431,13 +443,13 @@ call adaptive_inflate_init(post_inflate, &
                            allow_missing, 'Posterior')
 
 if (do_output()) then
-   if (inf_flavor(PRIOR_INF) > NO_INFLATION .and. &
+   if (inflation_flavor(PRIOR_INF) > NO_INFLATION .and. &
             inf_damping(PRIOR_INF) < 1.0_r8) then
       write(msgstring, '(A,F12.6,A)') 'Prior inflation damping of ', &
                                       inf_damping(PRIOR_INF), ' will be used'
       call error_handler(E_MSG,'filter_main:', msgstring)
    endif
-   if (inf_flavor(POSTERIOR_INF) > NO_INFLATION .and. &
+   if (inflation_flavor(POSTERIOR_INF) > NO_INFLATION .and. &
             inf_damping(POSTERIOR_INF) < 1.0_r8) then
       write(msgstring, '(A,F12.6,A)') 'Posterior inflation damping of ', &
                                       inf_damping(POSTERIOR_INF), ' will be used'
@@ -684,7 +696,6 @@ if (get_stage_to_write('input')) then
 
 endif
 
-
 AdvanceTime : do
    call trace_message('Top of main advance time loop')
 
@@ -915,7 +926,7 @@ AdvanceTime : do
    call     trace_message('Before observation assimilation')
    call timestamp_message('Before observation assimilation')
 
-   call filter_assim(state_ens_handle, obs_fwd_op_ens_handle, seq, keys, &
+   call filter_assim(state_ens_handle, obs_fwd_op_ens_handle, seq, keys, & ! <-- kotti
       ens_size, num_groups, obs_val_index, prior_inflate, &
       ENS_MEAN_COPY, ENS_SD_COPY, &
       PRIOR_INF_COPY, PRIOR_INF_SD_COPY, OBS_KEY_COPY, OBS_GLOBAL_QC_COPY, &
@@ -944,7 +955,8 @@ AdvanceTime : do
    endif
 
    ! Already transformed, so compute mean and spread for state diag as needed
-   call compute_copy_mean_sd(state_ens_handle, 1, ens_size, ENS_MEAN_COPY, ENS_SD_COPY)
+!   call compute_copy_mean_sd(state_ens_handle, 1, ens_size, ENS_MEAN_COPY, ENS_SD_COPY) ! KKUROSAWA
+
 
    ! This block applies posterior inflation
 
@@ -1051,10 +1063,6 @@ AdvanceTime : do
    
       call trace_message('After  posterior obs space diagnostics')
    else
-      ! call this alternate routine to collect any updated QC values that may
-      ! have been set in the assimilation loop and copy them to the outgoing obs seq
-      call obs_space_sync_QCs(obs_fwd_op_ens_handle, seq, keys, num_obs_in_set, &
-                              OBS_GLOBAL_QC_COPY, DART_qc_index)
       call deallocate_single_copy(obs_fwd_op_ens_handle, prior_qc_copy)
    endif
 
@@ -1102,7 +1110,7 @@ AdvanceTime : do
          if (write_all_stages_at_end) then
             call store_copies(state_ens_handle, ANALYSIS_COPIES)
          else
-            call write_state(state_ens_handle, file_info_analysis)
+           call write_state(state_ens_handle, file_info_analysis) ! <-- kotti
          endif
 
          !>@todo What to do here?
@@ -1667,7 +1675,7 @@ subroutine obs_space_diagnostics(obs_fwd_op_ens_handle, qc_ens_handle, ens_size,
    OBS_MEAN_START, OBS_VAR_START, OBS_GLOBAL_QC_COPY, OBS_VAL_COPY, &
    OBS_ERR_VAR_COPY, DART_qc_index, do_post)
 
-! Do observation space diagnostics on the set of obs corresponding to keys
+! Do prior observation space diagnostics on the set of obs corresponding to keys
 
 type(ensemble_type),     intent(inout) :: obs_fwd_op_ens_handle, qc_ens_handle
 integer,                 intent(in)    :: ens_size
@@ -1762,52 +1770,6 @@ endif
 deallocate(obs_temp)
 
 end subroutine obs_space_diagnostics
-
-!-------------------------------------------------------------------------
-
-subroutine obs_space_sync_QCs(obs_fwd_op_ens_handle,  &
-   seq, keys, num_obs_in_set, OBS_GLOBAL_QC_COPY, DART_qc_index)
-
-
-type(ensemble_type),     intent(inout) :: obs_fwd_op_ens_handle
-integer,                 intent(in)    :: num_obs_in_set
-integer,                 intent(in)    :: keys(num_obs_in_set)
-type(obs_sequence_type), intent(inout) :: seq
-integer,                 intent(in)    :: OBS_GLOBAL_QC_COPY
-integer,                 intent(in)    :: DART_qc_index
-
-integer               :: j
-integer               :: io_task, my_task
-real(r8), allocatable :: obs_temp(:)
-real(r8)              :: rvalue(1)
-
-! this is a query routine to return which task has 
-! logical processing element 0 in this ensemble.
-io_task = map_pe_to_task(obs_fwd_op_ens_handle, 0)
-my_task = my_task_id()
-
-! write the obs_seq.final file
-if (my_task == io_task) then
-   allocate(obs_temp(num_obs_in_set))
-else 
-   allocate(obs_temp(1))
-endif
-
-! Optimize: Could we use a gather instead of a transpose and get copy?
-call all_copies_to_all_vars(obs_fwd_op_ens_handle)
-
-! Update the qc global value
-call get_copy(io_task, obs_fwd_op_ens_handle, OBS_GLOBAL_QC_COPY, obs_temp)
-if(my_task == io_task) then
-   do j = 1, obs_fwd_op_ens_handle%num_vars
-      rvalue(1) = obs_temp(j)
-      call replace_qc(seq, keys(j), rvalue, DART_qc_index)
-   end do
-endif
-
-deallocate(obs_temp)
-
-end subroutine obs_space_sync_QCs
 
 !-------------------------------------------------------------------------
 
@@ -2433,7 +2395,7 @@ CURRENT_COPIES    = (/ ENS_MEM_START, ENS_MEM_END, ENS_MEAN_COPY, ENS_SD_COPY, &
 ! then we need an extra copy to hold (save) the prior ensemble spread
 ! ENS_SD_COPY will be overwritten with the posterior spread before
 ! applying the inflation algorithm; must save the prior ensemble spread in a different copy
-if ( inf_flavor(POSTERIOR_INF) == RELAXATION_TO_PRIOR_SPREAD ) then
+if ( inflation_flavor(POSTERIOR_INF) == RELAXATION_TO_PRIOR_SPREAD ) then
    SPARE_PRIOR_SPREAD = next_copy_number(cnum)
 endif
 
@@ -2800,6 +2762,50 @@ if (output_inflation) then
 endif
 
 end subroutine set_copies
+
+
+!-------------------------------------------------------------------------------
+!> The infl_flavor namelist is a string, and specifies the inflation algorithm.
+!> The character string can either be the name associated with the type of inflation
+!> or the integer associated with the type of inflation. The string names of the
+!> inflation algorithms is based on what is declared in the adaptive_inflate_mod.f90
+!> which is repeated here for reference. 
+!>
+!> NO_INFLATION               = 0
+!> OBS_INFLATION              = 1    observation-space inflation (deprecated)
+!> VARYING_SS_INFLATION       = 2    spatially-varying state-space inflation
+!> SINGLE_SS_INFLATION        = 3    spatially-constant state-space inflation
+!> RELAXATION_TO_PRIOR_SPREAD = 4    (available only with posterior inflation)
+!> ENHANCED_SS_INFLATION      = 5    Inverse Gamma version of VARYING_SS_INFLATION
+
+function set_inflation_flavor(flavor_string) result(flavors)
+
+character(len=*), intent(in)  :: flavor_string(2)
+integer                       :: flavors(2)
+
+integer :: int_options(7) = (/ NO_INFLATION,               &
+                               OBS_INFLATION,              &
+                               VARYING_SS_INFLATION,       &
+                               SINGLE_SS_INFLATION,        &
+                               RELAXATION_TO_PRIOR_SPREAD, &
+                               RELAXATION_TO_PRIOR_SPREAD, &
+                               ENHANCED_SS_INFLATION       /)
+
+character(len=32) :: string_options(7) = (/ 'NO_INFLATION              ',&
+                                            'OBS_INFLATION             ',&
+                                            'VARYING_SS_INFLATION      ',&
+                                            'SINGLE_SS_INFLATION       ',&
+                                            'RELAXATION_TO_PRIOR_SPREAD',&
+                                            'RTPS                      ',&
+                                            'ENHANCED_SS_INFLATION     ' /)
+
+flavors(PRIOR_INF)     = get_value_from_string(flavor_string(PRIOR_INF),     &
+                          int_options, string_options, 'input_nml:inf_flavor(1)')
+flavors(POSTERIOR_INF) = get_value_from_string(flavor_string(POSTERIOR_INF), &
+                          int_options, string_options, 'input_nml:inf_flavor(2)')
+
+end function set_inflation_flavor
+
 
 !==================================================================
 ! TEST FUNCTIONS BELOW THIS POINT

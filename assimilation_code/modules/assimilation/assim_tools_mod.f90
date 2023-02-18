@@ -8,7 +8,8 @@ module assim_tools_mod
 !> \defgroup assim_tools assim_tools_mod
 !>
 !> @{
-use      types_mod,       only : r8, i8, digits12, PI, missing_r8
+!use      types_mod,       only : r8, i8, digits12, PI, missing_r8
+use      types_mod,       only : r8, i8, digits12, missing_r8 ! KKUROSAWA
 
 use    options_mod,       only : get_missing_ok_status
 
@@ -70,6 +71,12 @@ use assim_model_mod,      only : get_state_meta_data,                           
 use distributed_state_mod, only : create_mean_window, free_mean_window
 
 use quality_control_mod, only : good_dart_qc, DARTQC_FAILED_VERT_CONVERT
+
+! KKUROSAWA
+USE common,       only: qsort, com_mean, com_correl
+USE common_cdf
+USE prob
+USE SW_test
 
 implicit none
 private
