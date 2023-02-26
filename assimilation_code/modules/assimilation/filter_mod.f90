@@ -944,7 +944,7 @@ AdvanceTime : do
    endif
 
    ! Already transformed, so compute mean and spread for state diag as needed
-   call compute_copy_mean_sd(state_ens_handle, 1, ens_size, ENS_MEAN_COPY, ENS_SD_COPY)
+!   call compute_copy_mean_sd(state_ens_handle, 1, ens_size, ENS_MEAN_COPY, ENS_SD_COPY) KKUROSAWA
 
    ! This block applies posterior inflation
 

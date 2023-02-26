@@ -183,11 +183,9 @@ logical  :: pf_enkf_hybrid                  = .true.
 real(r8) :: min_residual                    = 0.5_r8
 integer  :: pf_maxiter                      = 3
 real(r8) :: pf_kf_rtps_coeff                = 0.0_r8
-real(r8) :: enkf_alpha                      = 0.0_r8 ! KKUROSAWA
 
 ! KKUROSAWA
 logical  :: adaptive_minres_flag            = .false.
-character(len=256) :: minres_out_fname      = ''
 
 ! since this is in the namelist, it has to have a fixed size.
 integer, parameter   :: MAX_ITEMS = 300
@@ -251,7 +249,7 @@ namelist / assim_tools_nml / filter_kind, cutoff, sort_obs_inc, &
    distribute_mean, close_obs_caching,                                     &
    adjust_obs_impact, obs_impact_filename, allow_any_impact_values,        &
    convert_all_state_verticals_first, convert_all_obs_verticals_first,     &
-   adaptive_minres_flag, minres_out_fname, enkf_alpha
+   adaptive_minres_flag!, minres_out_fname, enkf_alpha
 
 
 !============================================================================
@@ -444,33 +442,6 @@ type(obs_def_type)   :: obs_def
 type(time_type)      :: obs_time, this_obs_time
 
 ! KKUROSAWA 
-!!!type(location_type)  :: global_state_loc(ens_handle%num_vars)
-!!!integer              :: global_state_kind(ens_handle%num_vars)
-!!!real(r8)             :: global_state_vars(ens_size,ens_handle%num_vars)
-!!!type(location_type)  :: global_obs_loc(obs_ens_handle%num_vars)
-!!!integer              :: global_obs_kind(obs_ens_handle%num_vars)
-!!!integer              :: global_obs_type(obs_ens_handle%num_vars)
-!!!real(r8)             :: global_obs_vars(ens_size,obs_ens_handle%num_vars)
-!!!real(r8)             :: tmp_mtx1(ens_size,ens_handle%num_vars)
-!!!real(r8)             :: tmp_mtx2(ens_size,obs_ens_handle%num_vars)
-!!!integer              :: tmp_mtx3(obs_ens_handle%num_vars)
-!!!integer              :: tmp_mtx4(obs_ens_handle%num_vars)
-!!!type(location_type)  :: base_states_loc
-!!!integer              :: base_states_type
-!!!real(r8)             :: tmp_dist,max_fact,min_fact
-!!!integer              :: counter1,counter2,counter3,counter4
-!!!integer              :: counter_u,counter_v,counter_ps,counter_t
-!!!integer              :: k, ierr, tmp_num, tmp_str, tmp_end
-!!!REAL(r8),ALLOCATABLE,DIMENSION(:)   :: work13,work14,work15,work16,work17
-!!!REAL(r8)             :: tmp_var5
-!!!real(r8)             :: tmp_min_res(ens_handle%num_vars), tmp_min_res_y(obs_ens_handle%num_vars) 
-!!!real(r8)             :: fin_min_res(ens_handle%num_vars), fin_min_res_y(obs_ens_handle%num_vars) 
-!!!real(r8),ALLOCATABLE,DIMENSION(:) :: out_min_res, out_min_res_y
-!!!integer              :: LUT(ens_handle%num_vars), sum_LUT(ens_handle%num_vars)
-!!!integer              :: LUT_y(obs_ens_handle%num_vars), sum_LUT_y(obs_ens_handle%num_vars)
-!!!integer              :: counter_obs_u, counter_obs_v, counter_obs_t, counter_obs_ps
-!!!integer              :: ind_t_str, ind_t_end
-!!!integer,ALLOCATABLE,DIMENSION(:) :: ind_obs_u, ind_obs_v, ind_obs_t, ind_obs_ps
 REAL(r8),ALLOCATABLE,DIMENSION(:,:) :: tmp_samples
 REAL(r8) :: tmp_roys_mdl(ens_handle%my_num_vars)
 REAL(r8) :: tmp_roys_obs(obs_ens_handle%my_num_vars)
@@ -750,49 +721,50 @@ endif
 ITERATIONS: do iter = 1,maxiter
 
   !----------------------------------------------
-  ! KKUROSAWA Jun.2022 
+  ! Kenta KUROSAWA Feb.2023 
   !----------------------------------------------
   IF (adaptive_minres_flag) THEN
     
-    ALLOCATE(tmp_samples(1,ens_size))
+    IF (iter < maxiter .OR. filter_kind == 9 ) THEN
 
-    !- model space
-    tmp_roys_mdl = UNDEF
-    tmp_roys_mdl_r_size = UNDEF
-    DO i = 1,ens_handle%my_num_vars
-      IF (res(i)>0.0d0 .AND. out_cnt(i)<0) THEN
-        tmp_samples(1,:) = ens_handle%copies(:,i) 
-        CALL SW_ROYSTON_TEST(dble(tmp_samples(1,:)),ens_size,1,dble(SW_alpha_mdl),tmp_roys_mdl_r_size(i)) ! Royston's Multivariate Normality Test
-        tmp_roys_mdl(i) = sngl(tmp_roys_mdl_r_size(i))
-        IF (tmp_roys_mdl(i) == 1.0d0) THEN ! Gaussian (Adaptive Stop)
-          out_min_res(i) = res(i)
-          res(i) = 0.0d0        
-          out_cnt(i) = iter-1
+      ALLOCATE(tmp_samples(1,ens_size)) ! univariate
+
+      !- model space
+      tmp_roys_mdl = UNDEF
+      tmp_roys_mdl_r_size = UNDEF
+      DO i = 1,ens_handle%my_num_vars
+        IF (res(i)>0.0d0 .AND. out_cnt(i)<0) THEN
+          tmp_samples(1,:) = ens_handle%copies(:,i) 
+          CALL SW_ROYSTON_TEST(dble(tmp_samples(1,:)),ens_size,1,dble(SW_alpha_mdl),tmp_roys_mdl_r_size(i)) ! Royston's Multivariate Normality Test
+          tmp_roys_mdl(i) = sngl(tmp_roys_mdl_r_size(i))
+          IF (tmp_roys_mdl(i) == 1.0d0) THEN ! Gaussian (Adaptive Stop)
+            out_min_res(i) = res(i)
+            res(i) = 0.0d0        
+            out_cnt(i) = iter-1 ! the number of IPF updates
+          ENDIF
         ENDIF
-      ENDIF
-    ENDDO
+      ENDDO
 
-    !- obs space
-    tmp_roys_obs = UNDEF
-    tmp_roys_obs_r_size = UNDEF
-    DO i = 1,obs_ens_handle%my_num_vars
-      IF (res_y(i)>0.0d0 .AND. out_cnt_y(i)<0) THEN
-        tmp_samples(1,:) = obs_ens_handle%copies(:,i) 
-        CALL SW_ROYSTON_TEST(dble(tmp_samples(1,:)),ens_size,1,dble(SW_alpha_obs),tmp_roys_obs_r_size(i)) ! Royston's Multivariate Normality Test
-        tmp_roys_obs(i) = sngl(tmp_roys_obs_r_size(i))
-        IF (tmp_roys_obs(i) == 1.0d0) THEN ! Gaussian (Adaptive Stop)
-          out_min_res_y(i) = res_y(i)
-          res_y(i) = 0.0d0        
-          out_cnt_y(i) = iter-1
+      !- obs space
+      tmp_roys_obs = UNDEF
+      tmp_roys_obs_r_size = UNDEF
+      DO i = 1,obs_ens_handle%my_num_vars
+        IF (res_y(i)>0.0d0 .AND. out_cnt_y(i)<0) THEN
+          tmp_samples(1,:) = obs_ens_handle%copies(:,i) 
+          CALL SW_ROYSTON_TEST(dble(tmp_samples(1,:)),ens_size,1,dble(SW_alpha_obs),tmp_roys_obs_r_size(i)) ! Royston's Multivariate Normality Test
+          tmp_roys_obs(i) = sngl(tmp_roys_obs_r_size(i))
+          IF (tmp_roys_obs(i) == 1.0d0) THEN ! Gaussian (Adaptive Stop)
+            out_min_res_y(i) = res_y(i)
+            res_y(i) = 0.0d0        
+            out_cnt_y(i) = iter-1 ! the number of IPF updates
+          ENDIF
         ENDIF
-      ENDIF
-    ENDDO
+      ENDDO
 
-    DEALLOCATE(tmp_samples)
+      DEALLOCATE(tmp_samples)
 
-    !--- last iteration ---
-  !  IF (iter == maxiter) THEN
-    IF (filter_kind == 1) THEN
+    ELSE ! last iteration (EnKF update)
+
       DO i = 1,ens_handle%my_num_vars
         IF (res(i)>0.0d0 .AND. out_cnt(i)<0) THEN
           out_min_res(i) = res(i)
@@ -807,27 +779,16 @@ ITERATIONS: do iter = 1,maxiter
           out_cnt_y(i) = iter ! maxiter
         ENDIF
       ENDDO
- !     write(*,*) 'minval(res), maxval(res)', minval(out_min_res), maxval(out_min_res)
- !     write(*,*) 'minval(res_y), maxval(res_y)', minval(out_min_res_y), maxval(out_min_res_y)
- !     write(*,*) 'minval(out_cnt), maxval(out_cnt)', minval(out_cnt), maxval(out_cnt)
- !     write(*,*) 'minval(out_cnt_y), maxval(out_cnt_y)', minval(out_cnt_y), maxval(out_cnt_y)
 
       !- model space
       global_tmp_min_res = 0.0d0
       global_tmp_cnt     = 0
       DO i = 1, ens_handle%num_vars
         CALL get_var_owner_index(ens_handle, int(i,i8), owner, owners_index)
-        IF (ens_handle%my_pe == owner) THEN
+        IF (ens_handle%my_pe == owner .and. out_min_res(owners_index) >= 0.0d0) THEN
           global_tmp_min_res(i) = out_min_res(owners_index) 
           global_tmp_cnt(i) = out_cnt(owners_index) 
         ENDIF
-      ENDDO
-      ! gather
-      global_out_min_res = UNDEF
-      global_out_cnt = int(UNDEF)
-      DO i = 1, ens_handle%num_vars
-        CALL sum_across_tasks(global_tmp_min_res(i),global_out_min_res(i))
-        CALL sum_across_tasks(global_tmp_cnt(i),global_out_cnt(i))
       ENDDO
     
       !- obs space
@@ -840,14 +801,6 @@ ITERATIONS: do iter = 1,maxiter
           global_tmp_cnt_y(i) = out_cnt_y(owners_index) 
         ENDIF
       ENDDO
-      ! gather
-      global_out_min_res_y = UNDEF
-      global_out_cnt_y = int(UNDEF)
-      DO i = 1, obs_ens_handle%num_vars
-        CALL sum_across_tasks(global_tmp_min_res_y(i),global_out_min_res_y(i))
-        CALL sum_across_tasks(global_tmp_cnt_y(i),global_out_cnt_y(i))
-      ENDDO
-
 
     ENDIF
 
@@ -868,6 +821,7 @@ ITERATIONS: do iter = 1,maxiter
    beta = beta_max
    beta_y = beta_max
 
+
    ! Regularization strategy requires calculating the -log() of localized
    ! obs-and model-space weights prior to DA step
    if (timing) call start_mpi_timer(base)
@@ -879,8 +833,8 @@ ITERATIONS: do iter = 1,maxiter
       call get_obs_def(observation, obs_def)
       base_obs_loc = get_obs_def_location(obs_def)
       obs_err_var = get_obs_def_error_variance(obs_def)
-
       base_obs_type = get_obs_def_type_of_obs(obs_def)
+
       if (base_obs_type > 0) then
          base_obs_kind = get_quantity_for_type_of_obs(base_obs_type)
       else
@@ -902,7 +856,7 @@ ITERATIONS: do iter = 1,maxiter
 
           ! Likelihood calculations
           orig_obs_prior = obs_ens_init(1:ens_size, owners_index)
-          d = (obs(1) - orig_obs_prior)**2 / (2.0_r8*obs_err_var)
+          d = (obs(1) - orig_obs_prior)**2 / 2.0_r8*obs_err_var
           d = d - minval(d)
 
           ! Determine whether to skip ob
@@ -1088,7 +1042,7 @@ ITERATIONS: do iter = 1,maxiter
          if (res(i) <= 1.0_r8/beta(i)) then
             beta(i) = 1.0_r8/res(i)
             res(i) = 0.0_r8
-            IF (adaptive_minres_flag) THEN
+            IF (adaptive_minres_flag) THEN ! KKUROSAWA
               out_min_res(i) = res(i)
               out_cnt(i) = iter
             ENDIF
@@ -1114,6 +1068,7 @@ ITERATIONS: do iter = 1,maxiter
       obs_qc = obs_ens_handle%copies(OBS_GLOBAL_QC_COPY,i)
 
       if ( (res_y(i) > 0.0_r8) .and. (nint(obs_qc) == 0) ) then
+     ! if ( (res_y(i) > 0.0_r8) ) then
 
          call pf_regularization(lhw(1:ens_size,i),ens_size,frac_neff*ens_size,beta_y(i),beta_max)
 
@@ -1121,13 +1076,14 @@ ITERATIONS: do iter = 1,maxiter
          if (res_y(i) <= 1.0_r8/beta_y(i)) then
             beta_y(i) = 1.0_r8/res_y(i)
             res_y(i) = 0.0_r8
-            IF (adaptive_minres_flag) THEN
+            IF (adaptive_minres_flag) THEN ! KKUROSAWA
               out_min_res_y(i) = res_y(i)
               out_cnt_y(i) = iter
             ENDIF
          else
             res_y(i) = res_y(i) - 1.0_r8/beta_y(i)
          end if
+
 
          ! Store residuals
          beta_y(i) = min(beta_y(i),beta_max)
@@ -1216,7 +1172,7 @@ ITERATIONS: do iter = 1,maxiter
       ! Inflate obs error variance for EnKF step in hybrid
       if (filter_kind == 1 .and. iter > 1) then
       !  obs_err_infl = 1.0_r8 / min_res_y(owners_index) 
-        obs_err_infl = 1.0_r8 / max(out_min_res_y(owners_index),0.00010d0) ! KKUROSAWA
+        obs_err_infl = 1.0_r8 / max(out_min_res_y(owners_index),0.0001_r8) ! KKUROSAWA
         obs_err_var = obs_err_var*obs_err_infl
         if ( obs_err_infl > 500 ) obs_qc = 1
       end if
@@ -1716,6 +1672,10 @@ ITERATIONS: do iter = 1,maxiter
                call pf_update(ens_handle%copies(1:ens_size,state_index), ens_mean, ens_var, &
                               increment(1:ens_size), ens_size, cov_factor, d, pf_alpha)
 
+               if (isnan(increment(1))) then ! KKUROSAWA
+                 increment(1:ens_size) = 0.0_r8
+               endif
+
             else
    
                increment(1:ens_size) = 0.0_r8
@@ -1943,6 +1903,9 @@ ITERATIONS: do iter = 1,maxiter
                call pf_update(obs_ens_handle%copies(1:ens_size,obs_index), ens_mean, ens_var, &
                               increment(1:ens_size), ens_size, cov_factor, d, pf_alpha)
 
+               if (isnan(increment(1))) then ! KKUROSAWA
+                 increment(1:ens_size) = 0.0_r8
+               endif
 
             else
    
@@ -1968,7 +1931,7 @@ ITERATIONS: do iter = 1,maxiter
             grp_top = grp_end(group)
 
             IF (filter_kind_orig == 9 .AND. adaptive_minres_flag) THEN ! KKUROSAWA
-              obs_err_infl = 1.0_r8 / max(out_min_res_y(obs_index),0.00010d0)  
+              obs_err_infl = 1.0_r8 / max(out_min_res_y(obs_index),0.0001_r8)  
               obs_err_var = obs_err_var_org*obs_err_infl
               ! Compute observation space increments for each group
               call obs_increment(obs_prior(grp_bot:grp_top), grp_size, obs(1), &
@@ -2076,7 +2039,7 @@ endif ! KDDM
 ! Perform RTPS step for hybrid
 if (filter_kind == 1 .and. .not. local_varying_ss_inflate) then
 
-  IF (filter_kind_orig == 1) pf_kf_rtps_coeff = enkf_alpha 
+!  IF (filter_kind_orig == 1) pf_kf_rtps_coeff = enkf_alpha 
 
    if (my_task_id() == 0) then
 
@@ -2151,7 +2114,6 @@ if (filter_kind == 9 .and. max_res == 0.0_r8) then
 
   ! Switch to EAKF for last iteration 
   filter_kind = 1
-!  filter_kind = 2 ! KKUROSAWA
 
 end if
 
@@ -2163,10 +2125,8 @@ end do ITERATIONS
 !- 4. out
 IF (adaptive_minres_flag) THEN
 
-  tmp_num1 = ENS_MEAN_COPY+1 ! iteration
-  tmp_num2 = ENS_SD_COPY+1   ! min_res
-!  write(*,*) 'tmp_num1', tmp_num1
-!  write(*,*) 'tmp_num2', tmp_num2
+  tmp_num1 = ENS_MEAN_COPY ! iteration
+  tmp_num2 = ENS_SD_COPY   ! min_res
   DO i = 1, ens_handle%num_vars
     CALL get_var_owner_index(ens_handle, int(i,i8), owner, owners_index)
     IF (ens_handle%my_pe == owner) THEN
@@ -2175,18 +2135,6 @@ IF (adaptive_minres_flag) THEN
     ENDIF
   ENDDO
 
-  !- Binary out
-!!!  IF (my_task_id() == 0) THEN
-!!!    write(*,*) 'ens_handle%num_vars', ens_handle%num_vars
-!!!   ! OPEN(11,FILE='./test_min_res.bin',FORM='UNFORMATTED',ACTION='WRITE',STATUS='REPLACE')
-!!!    OPEN(11,FILE='./test_min_res.bin',FORM='UNFORMATTED',ACTION='WRITE',STATUS='OLD',POSITION='APPEND')
-!!!    WRITE(11) global_out_min_res 
-!!!    CLOSE(11)
-!!! !   OPEN(12,FILE='./test_cnt.bin',FORM='UNFORMATTED',ACTION='WRITE',STATUS='REPLACE')
-!!!    OPEN(12,FILE='./test_cnt.bin',FORM='UNFORMATTED',ACTION='WRITE',STATUS='OLD',POSITION='APPEND')
-!!!    WRITE(12) global_out_cnt 
-!!!    CLOSE(12)
-!!!  ENDIF
 ENDIF
 !============================================================================
 
@@ -3166,7 +3114,6 @@ end do
 em = sum( ens_post ) / ens_size
 ens_post = ens_mean + (ens_post - em)
 incr = ens_post - ens
-
 end subroutine pf_update
 
 

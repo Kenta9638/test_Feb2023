@@ -727,6 +727,16 @@ do copy_index = ens_size+1, ens_handle%num_copies
       if(my_task_id() == SINGLE_IO_TASK_ID) &
          call write_extra_variables(ncFileID, temp_ens, copyname, curr_ens_time, timeindex)
    endif
+
+ !  ! KKUROSAWA
+ !  if (copy_index==ens_size+3) then ! min_res
+ !     copyname = get_copy_name(file_handle, ens_size+2) ! SD
+ !     call get_copy(map_task_to_pe(ens_handle, 0), ens_handle, copy_index, temp_ens)
+ !     if(my_task_id() == SINGLE_IO_TASK_ID) THEN
+ !       call write_extra_variables(ncFileID, temp_ens, copyname, curr_ens_time, timeindex)
+ !     endif
+ !  endif
+
 enddo
    
 if (my_task_id() == SINGLE_IO_TASK_ID) then ! SINGLE_IO_TASK_ID writes out all files
